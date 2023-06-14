@@ -1,0 +1,119 @@
+function historicalUpdate() {
+
+  class BeeKeeper{
+    constructor(email, phoneNumber){
+      this.email = email;
+      this.phoneNumber = phoneNumber;
+      this.attendanceIndex;
+      this.historicalIndex;
+      this.attendanceHistory = [];
+    }
+
+    getAttendanceIndex(){
+      return this.attendanceIndex;
+    }
+
+    getHistoricalIndex(){
+      return this.historicalIndex;
+    }
+
+    getAttendanceHistory(){
+      return this.attendanceHistory;
+    }
+
+    setAttendanceIndex(value){
+      this.attendanceIndex = value;
+    }
+
+    setHistoricalIndex(value){
+      this.historicalIndex = value;
+    }
+
+    updateAttendanceHistory(value){
+      value.forEach(date => {
+        this.attendanceHistory.push(date);
+      })
+    }
+
+    updateHistoricalAttendance(date){
+      this.attendanceHistory.push(date);
+    }
+
+  }
+
+  //Access the sheet and set up variables for ease of use
+  var attendanceSheet = SpreadsheetApp.openByUrl("Standin for actual website");
+  var membershipListLastRow = attendanceSheet.getSheetByName("Membership List").getDataRange().getLastRow()-1;
+  var memberData = attendanceSheet.getSheetByName("Membership List").getRange(2, 3, membershipListLastRow, 2).getValues();
+  var attendanceArchiveLastRow = attendanceSheet.getSheetByName("Attendance Archive").getDataRange().getLastRow()-1;
+  var attendanceData = attendanceSheet.getSheetByName("Attendance Archive").getRange(2, 1, attendanceArchiveLastRow, 2).getValues();
+  var historicalSheet = SpreadsheetApp.openById("Standin for actual ID value");
+  var historicalLastRow = historicalSheet.getSheetByName("2022 Members and Attendees").getDataRange().getLastRow()-1;
+  var historicalLastColumn = historicalSheet.getSheetByName("2022 Members and Attendees").getDataRange().getLastColumn();
+  var historicalDates = historicalSheet.getSheetByName("2022 Members and Attendees").getRange(2, 6, 1, historicalLastColumn).getValues()[0];
+  var historicalLocData = historicalSheet.getSheetByName("2022 Members and Attendees").getRange(4, 5, historicalLastRow-4, 1).getValues();
+
+  //Create two maps. One linking phone numbers to a beeKeeper object for data storage. A second map linking emails to the same beeKeeper objects
+  var membershipMapEmail = new Map();
+  var membershipMapPhone = new Map();
+  var beeKeeperArray = [];
+  memberData.forEach(key =>{
+      beeKeeperArray.push(new BeeKeeper(key[1].toLowerCase(), key[0]))
+      membershipMapEmail.set(key[1].toLowerCase(), beeKeeperArray[beeKeeperArray.length-1])
+      membershipMapPhone.set(key[0], beeKeeperArray[beeKeeperArray.length-1])
+  })
+ 
+  //Loop through the historical data, identifying location data and adding historical attendance
+  historicalLocData.forEach((email, index) =>{
+    var processedEmail = ""
+    if(email[0].indexOf(" ") > -1){
+      for(var pos = 0; pos < email[0].length; pos++){
+        var letter = "";
+        if(email[0][pos] == " "){
+          console.log("Space in email detected and removed");
+          continue;
+        }
+        else{
+          letter = email[0].slice(pos, pos+1);
+        }
+        processedEmail += letter
+      }
+    }
+    else{
+      processedEmail = email[0];
+    }
+    processedEmail = processedEmail.toLowerCase(); 
+    if(membershipMapEmail.get(processedEmail) != null){
+      var test1 =  membershipMapEmail.get(processedEmail)
+      membershipMapEmail.get(processedEmail).setHistoricalIndex(index+4);
+      var historicalAttendance = historicalSheet.getSheetByName("2022 Members and Attendees").getRange(index+4, 6, 1, historicalLastColumn).getValues()[0];
+      for(var loc = 0; loc < historicalAttendance.length; loc++){
+        var test = parseInt(historicalAttendance[loc])
+        if(parseInt(historicalAttendance[loc]) == 1){
+          membershipMapEmail.get(processedEmail).updateHistoricalAttendance(historicalDates[loc])
+        }
+      }
+    }
+  }) 
+
+  //Link attendance history and attendance index to the beeKeeper Objects
+  attendanceData.forEach((key, index) =>{
+    membershipMapPhone.get(key[0]).updateAttendanceHistory(key.slice(1, key.length))
+    membershipMapPhone.get(key[0]).setAttendanceIndex(index+2)
+    if(membershipMapPhone.get(key[0]).attendanceHistory.length > 1){
+      membershipMapPhone.get(key[0]).attendanceHistory = membershipMapPhone.get(key[0]).getAttendanceHistory().reverse()
+    }
+  })
+
+  //Update each record by adding the attendance and removing the old attendance
+  beeKeeperArray.forEach(keeper =>{
+    //Update the new attendannce sheet
+    var getNewAttendance = attendanceSheet.getSheetByName("Attendance Archive").getRange(keeper.attendanceIndex, 2, 1, keeper.attendanceHistory.length).getValues();
+    var setNewAttendance = attendanceSheet.getSheetByName("Attendance Archive").getRange(keeper.attendanceIndex, 2, 1, keeper.attendanceHistory.length).setValues([keeper.attendanceHistory]);
+    if(keeper.historicalIndex != null){
+      var removeHistoricAttendance = historicalSheet.getSheetByName("2022 Members and Attendees").getRange(keeper.getHistoricalIndex(), 1, 1, historicalLastColumn).clear();
+    }
+  })
+    
+  console.log("Program Complete")
+}
