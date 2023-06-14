@@ -1,0 +1,38 @@
+function autoEmailer(targetEmailArray, phoneNumberArray){
+//Set a value for the current date
+  var now = new Date();
+  var day = now.getDate()
+  var month = now.getDate()-1
+  var currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
+  var currentString = currentDate.toDateString();
+
+//Create a list of the parts for the email
+  var emailParts = [];
+  var intro = "Salutations!" +"\n";
+  emailParts.push(intro);
+    
+  // Create a text body to list all the phone numbers that were entered without having previouly entered member information
+    var body = "The following phone numbers were entered but they did not having membership information. These numbers need to be followed up on to figure out who they belong to. The numbers are: " + "\n ";
+    phoneNumberArray.forEach(number =>{
+      body = body + number +"\n";
+    })
+    emailParts.push(body);
+
+  //Create a polite closing!
+  var closing = "\n" + "I hope this helps! Have a fabulous day.";
+
+  emailParts.push(closing);
+
+  //Assemble the email
+  var message = "";
+  emailParts.forEach((part) => {
+    message = message + part;
+    }
+  )
+  //var message = intro + body + closing;
+
+  //Send out email
+  targetEmailArray.forEach(toEmailAddress=>{
+    MailApp.sendEmail(toEmailAddress, "Meeting Attendance " + currentString + " Missing Phone Numners", message);
+  })
+}     
