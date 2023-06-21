@@ -1,7 +1,0 @@
-function DeleteTimers() {
-  const allTriggers = ScriptApp.getProjectTriggers();
-  for (let index = 0; index < allTriggers.length; index++) {
-      ScriptApp.deleteTrigger(allTriggers[index]);
-  }
-
-}
