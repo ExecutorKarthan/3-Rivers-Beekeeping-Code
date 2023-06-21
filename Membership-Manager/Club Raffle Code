@@ -1,0 +1,91 @@
+function randomDrawing() {
+
+  //Create a function to randomly pull a name, then update the list
+  function pullName(arrayToPullFrom){
+    var randomIndex = Math.floor(Math.random()*arrayToPullFrom.length);
+    var randomName = arrayToPullFrom.splice(randomIndex, 1)
+    return randomName;
+  }
+
+//Access the sheet and set up variables for ease of use
+  var attendanceSheet = SpreadsheetApp.openByUrl("https://docs.google.com/spreadsheets/d/1LP802vrvlJ3GADOsaDcZFqFGWo_qmoApOEHn6dey7xU/edit?resourcekey#gid=1010645041");
+  var membershipListSheet = attendanceSheet.getSheetByName("Membership List").getDataRange();
+  var rawAttendanceSheet = attendanceSheet.getSheetByName("Raw Attendance").getDataRange();
+  var raffleSheet = SpreadsheetApp.openByUrl("https://docs.google.com/spreadsheets/d/1Qh2ya-nItgUAms-wSbywWO6nPlFX64opcFiTB58hvKg/edit#gid=289545089").getSheetByName("Evening Drawing")
+  
+  //Establish ending row for the datasheets 
+  var lastRow_MembershipList = membershipListSheet.getLastRow()-1;
+  var lastRow_RawAttendance = rawAttendanceSheet.getLastRow()-1;
+
+  //Create time constrains that pulls notable data
+  var now = new Date()
+  var meetingStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1, now.getHours(), now.getMinutes(), now.getSeconds());
+  //Create a version of "now" for testing
+  //now.setMonth(now.getMonth()+1)
+  //Create a version of meetingStart
+  meetingStart.setHours(now.getHours()-3)
+  var timestamp = new Date(Date.parse(rawAttendanceSheet.getValues()[lastRow_RawAttendance-1][0]));
+
+  //Create a map of the membership list and attendance list for reference
+  var memberMap = new Map();
+  var memberLocationMap = new Map();
+  var membershipList = membershipListSheet.getValues()
+  membershipList.forEach((dataArray, index) => {
+      memberLocationMap.set(dataArray[2], index+1)
+  })
+  
+  //Create an array to hold the names
+  var prizeEntry = [];
+
+  //Check for any names to add
+  var namesToAdd = raffleSheet.getRange(2, 1, 20).getValues();
+  namesToAdd.forEach(entry => {
+    if(entry[0] != ""){
+      prizeEntry.push(entry[0])
+    }
+  })
+
+  //Format a heading
+  var pasteTitleForDrawing = raffleSheet.getRange(1, 1, 1, 3).setValues([["Names to add", "Order of Winner", "Name of Winner" ]]).setFontWeight("bold")
+  
+  //Pull names from the actual sheet that are in range
+  for(var row = lastRow_RawAttendance; row > 0; row = row - 1){
+    timestamp = new Date(Date.parse(rawAttendanceSheet.getValues()[row][0]));
+    var rowData = rawAttendanceSheet.getValues()[row];
+    //Makesure the timestamp is in range
+    if(timestamp < now && timestamp > meetingStart){
+      var rawName = ""
+      var fullName = ""
+      //If there is a current member
+      if(rawAttendanceSheet.getValues()[row][2] =="No" && memberLocationMap.get(rawAttendanceSheet.getValues()[row][1])) {
+        rawName = attendanceSheet.getSheetByName("Membership List").getRange(memberLocationMap.get(rawAttendanceSheet.getValues()[row][1]), 1, 1, 2).getValues()[0]
+        fullName = rawName[0] + " " + rawName[1];
+        prizeEntry.push(fullName);
+        } 
+      //If it is a new member
+      if(rawAttendanceSheet.getValues()[row][2] =="Yes"){
+        rawName = attendanceSheet.getSheetByName("Raw Attendance").getRange(row+1, 4, 1, 2).getValues()[0]
+        fullName = rawName[0] + " " + rawName[1];
+        prizeEntry.push(fullName);
+      }
+    }   
+    else{
+      break;
+    }
+  }
+  var rowNum = prizeEntry.length;
+ 
+  //Clear the old list for the new data
+  var clearToLastRow = raffleSheet.getLastRow()
+  var clearOldCells = raffleSheet.getRange(2, 2, clearToLastRow+1, 2).clearContent()
+
+  //Go through each name on the list, randomly drawing them and pasing them into the sheet
+  for(var index = 2; prizeEntry.length > 0; index++){
+    var randomName = pullName(prizeEntry);
+    var winPosition = "This is winner number " + parseInt(index-1)
+    var pastePeopleForDrawing = raffleSheet.getRange(index, 2, 1, 2).setValues([[winPosition, randomName]])
+  }
+  var autoformat = raffleSheet.autoResizeRows(1, rowNum+1).autoResizeColumns(2, 2);
+
+  console.log("Raffle Generator Completed its run")
+}
